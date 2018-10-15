@@ -1,0 +1,10 @@
+Commenting:
+Add definition of input variables and outputs
+
+Testing:
+Time functions with dummy data
+Check that all functions work properly
+
+Cleaning up:
+Some of these functions work only with specific data shapes as they are directly adapted from the exercices. 
+These functions need to be generalised or modified to be usable with different data shapes
