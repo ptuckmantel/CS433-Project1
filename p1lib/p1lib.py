@@ -81,23 +81,27 @@ def cross_validation(y, x, k_indices, k, lambda_, degree):
 
 
 def compute_e(y, tx, w):
+    """compute the error vector"""
     e = y - np.dot(tx, w)
     return e
 
 
 def compute_loss_mse(y, tx, w):
+    """compute mean squared error"""
     diff = compute_e(y, tx, w)
     loss = 0.5 * np.mean(diff ** 2)
     return loss
 
 
 def compute_loss_mae(y, tx, w):
+    """compute mean absolute error"""
     diff = compute_e(y, tx, w)
     loss = 0.5 * np.mean(np.abs(diff))
     return loss
 
 
 def compute_rmse(y, tx, w):
+    """compute root mean squared error"""
     mse = compute_loss_mse(y, tx, w)
     rmse = np.sqrt(2 * mse)
     return rmse
@@ -162,7 +166,7 @@ def compute_gradient_mae(y, tx, w):
 
 
 def compute_stoch_gradient(y, tx, w):
-    """Compute a stochastic gradient from just few examples n and their corresponding y_n labels."""
+    """Compute a stochastic gradient from just few examples and their corresponding labels."""
     e = compute_e(y, tx, w)
     n = len(y)
     gradient = -np.dot(tx.T, e) / n
@@ -191,7 +195,7 @@ def learning_by_gradient_descent(y, tx, w, gamma):
     loss = compute_loss_logistic(y, tx, w)
     grad = compute_gradient_logistic(y, tx, w)
     w = w - gamma * grad
-    return loss, w
+    return w, loss
 
 
 def penalized_logistic_regression(y, tx, w, lambda_):
@@ -208,7 +212,7 @@ def learning_by_penalized_gradient(y, tx, w, gamma, lambda_):
     """
     loss, grad = penalized_logistic_regression(y, tx, w, lambda_)
     w = w - gamma * grad
-    return loss, w
+    return w, loss
 
 
 """ COST OPTIMISATION"""
@@ -249,7 +253,23 @@ def gradient_descent(y, tx, initial_w, max_iters, gamma, status=True, cost_funct
         if status:
             print("Gradient Descent({bi}/{ti}): loss={ls}, w0={w0}, w1={w1}".format(bi=n_iter, ti=max_iters - 1,
                                                                                     ls=loss, w0=w[0], w1=w[1]))
-    return losses, ws
+    return w, loss
+
+
+def least_squares_GD(y, tx, initial_w, max_iters, gamma, status=True):
+    """Gradient descent algorithm with MSE cost function"""
+    # Define parameters to store w and loss
+    ws = [initial_w]
+    losses = []
+    w = initial_w
+    for n_iter in range(max_iters):
+        loss = compute_loss_mse(y, tx, w)
+        gradient = compute_gradient_mse(y, tx, w)
+        w = w - gamma * gradient
+        if status:
+            print("Gradient Descent({bi}/{ti}): loss={ls}, w0={w0}, w1={w1}".format(bi=n_iter, ti=max_iters - 1,
+                                                                                    ls=loss, w0=w[0], w1=w[1]))
+    return w, loss
 
 
 def gradient_descent_dynamic(y, tx, initial_w, max_iters, status=True, cost_function='mse'):
@@ -272,7 +292,7 @@ def gradient_descent_dynamic(y, tx, initial_w, max_iters, status=True, cost_func
         if status:
             print("Gradient Descent({bi}/{ti}): loss={ls}, w0={w0}, w1={w1}, g={g}".format(
                 bi=n_iter, ti=max_iters - 1, ls=loss, w0=w[0], w1=w[1], g=gamma))
-    return losses, ws
+    return w, loss
 
 
 def stochastic_gradient_descent(y, tx, initial_w, batch_size, max_iters, gamma, status='True', cost_function='mse'):
@@ -294,7 +314,24 @@ def stochastic_gradient_descent(y, tx, initial_w, batch_size, max_iters, gamma, 
         if status:
             print("S.G.D({bi}/{ti}): loss={ls}, w0={w0}, w1={w1}".format(
                 bi=n_iter, ti=max_iters - 1, ls=loss, w0=w[0], w1=w[1]))
-    return losses, ws
+    return w, loss
+
+
+def least_squares_SGD(y, tx, initial_w, batch_size, max_iters, gamma, status='True'):
+    """Stochastic gradient descent algorithm."""
+    w = initial_w
+    ws = [initial_w]
+    losses = []
+    for n_iter in range(max_iters):
+        for minibatch_y, minibatch_tx in batch_iter(y, tx, batch_size):
+            gradient = compute_gradient_mse(minibatch_y, minibatch_tx, w)
+            loss = compute_loss_mse(y, tx, w)
+            w = w - gamma * gradient
+        if status:
+            print("S.G.D({bi}/{ti}): loss={ls}, w0={w0}, w1={w1}".format(
+                bi=n_iter, ti=max_iters - 1, ls=loss, w0=w[0], w1=w[1]))
+    return w, loss
+
 
 
 def stochastic_gradient_descent_dynamic(y, tx, initial_w, batch_size, max_iters, status='True', cost_function="mse"):
@@ -317,16 +354,16 @@ def stochastic_gradient_descent_dynamic(y, tx, initial_w, batch_size, max_iters,
         if status:
             print("S.G.D({bi}/{ti}): loss={ls}, w0={w0}, w1={w1}".format(
                 bi=n_iter, ti=max_iters - 1, ls=loss, w0=w[0], w1=w[1]))
-    return losses, ws
+    return w, loss
 
 
 def least_squares(y, tx):
     """calculate the least squares solution."""
     a = np.dot(tx.T, tx)
     b = np.dot(tx.T, y)
-    w_opt = np.linalg.solve(a, b)
-    mse = compute_loss_mse(y, tx, w_opt)
-    return w_opt, mse
+    w = np.linalg.solve(a, b)
+    loss = compute_loss_mse(y, tx, w)
+    return w, loss
 
 
 def ridge_regression(y, tx, lambda_):
@@ -335,25 +372,25 @@ def ridge_regression(y, tx, lambda_):
     a = np.dot(tx.T, tx) + 2 * len(y) * lambda_ * identity
     b = np.linalg.inv(a)
     c = np.dot(b, tx.T)
-    w_opt = np.dot(c, y)
-    mse = compute_loss_mse(y, tx, w_opt)
-    return w_opt, mse
+    w = np.dot(c, y)
+    loss = compute_loss_mse(y, tx, w)
+    return w, loss
 
 
-def logistic_regression_gradient_descent(y, tx, initial_w, max_iter, gamma):
+def logistic_regression(y, tx, initial_w, max_iter, gamma):
     """ Calculate w using logistic gradient descent"""
     loss_hist = []
     w = initial_w
     # start the logistic regression
     for iter in range(max_iter):
         # get loss and update w.
-        loss, w = learning_by_gradient_descent(y, tx, w, gamma)
+        w, loss = learning_by_gradient_descent(y, tx, w, gamma)
         # log info
         if iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
         # converge criterion
         loss_hist.append(loss)
-    return w
+    return w, loss
 
 
 def reg_logistic_regression(y, tx, lambda_, initial_w, max_iter, gamma):
@@ -363,11 +400,11 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iter, gamma):
     # start the logistic regression
     for iter in range(max_iter):
         # get loss and update w.
-        loss, w = learning_by_penalized_gradient(y, tx, w, gamma, lambda_)
+        w, loss = learning_by_penalized_gradient(y, tx, w, gamma, lambda_)
         # log info
         if iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
-    return w
+    return w, loss
 
 
 """ CHECKING MODEL """
