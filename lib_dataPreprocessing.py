@@ -4,6 +4,13 @@ Created on Sat Oct 20 10:45:24 2018
 
 @author: Una
 """
+import numpy as np
+import matplotlib.pyplot as plt
+
+from proj1_helpers import *
+from lib_errorMetrics import *
+from lib_MLmodels import *
+
 # PARAMETERS THAT ARE NEEDED AT SOME POINT FOR THIS FUNCTIONS 
 # best to specify them at the beginning of the main scrip 
 #plottingOn=0
@@ -31,6 +38,13 @@ def standardize(x):
     x = x / std_x
     return x, mean_x, std_x
 
+
+# Y LABELS TO 0 AND 1
+def y_to_01(y):
+    true_1=(y==(-1))
+    indx_1=np.where(true_1) 
+    y[indx_1]=0
+    return y
 
 # BUILD POLINOMIAL BASE
     
@@ -137,3 +151,17 @@ def removeOutliers(x, percentileOutliers):
     for i in range (num_features):
         x[:,i]=np.clip(x[:,i],0,x_perc_border[i])
     return x
+
+def featuresPreprocessing(x,createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree,percentileOutliers,plottingOn):
+    # -999values
+    x=resolve999values(x,createNew999Features,plottingOn)
+     # removing outliers
+    x=removeOutliers(x, percentileOutliers) 
+    # building polinomial features
+    x=build_poly(x,createNewDegreeFeatures,createNewQuadraticFeatures, degree)
+    #normalizing data
+    #x_norm, mean_x, std_x= standardize01(x)
+    x_norm, mean_x, std_x= standardize(x)
+    # addind 1 for firs column
+    x_out=augument_feature(x_norm)
+    return x_out
