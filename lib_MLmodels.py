@@ -176,9 +176,9 @@ def optimal_ridge_regression(yb,tx, lambdas,plottingOn):
     
 def sigmoid(t):
     """apply sigmoid function on t."""
-    #sig=np.exp(t)/(1+np.exp(t))
+    sig=np.exp(t)/(1+np.exp(t))
 #    print('...t:',t)
-    sig=1.0 / (1 + np.exp(-t))
+    #sig=1.0 / (1 + np.exp(-t))
     return sig
 
 def loss_maxL(y, tx, w):

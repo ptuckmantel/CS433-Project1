@@ -6,6 +6,7 @@ Created on Sat Oct 20 10:45:24 2018
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import skew
 
 from proj1_helpers import *
 from lib_errorMetrics import *
@@ -38,6 +39,33 @@ def standardize(x):
     x = x / std_x
     return x, mean_x, std_x
 
+# GAUSSIAN DISTRIBUTION 
+    
+def cube_transform(x):
+    cubed_x = x**3
+    
+    return cubed_x
+
+def log_transform(x):
+    shifted_x = x - np.min(x) + 1
+    
+    return np.log(shifted_x)
+    
+def transform_to_gauss(x,skewnessThreshold):
+    corrected_data=[]
+    D = x.shape[1]
+    
+    for d in range(D):
+        skewness = skew(x[:, d])
+        if skewness < -skewnessThreshold:
+            corrected_data.append(cube_transform(x[:, d]))
+        elif skewness > skewnessThreshold:
+            corrected_data.append(log_transform(x[:, d]))
+        else:
+            corrected_data.append(x[:, d])
+            
+    return np.array(corrected_data).T
+     
 
 # Y LABELS TO 0 AND 1
 def y_to_01(y):
@@ -98,6 +126,27 @@ def augument_feature(x):
 
 
 # -999 VALUES 
+    
+def remove_999_features(xIn,fraction999Threshold):
+    #print('removing 999 features')
+    x =np.copy(xIn)
+    numFeatures=len(x[0,:])
+    numTrials=len(x[:,0])
+    x[x == -999] = np.nan
+    num_999 = []
+    frac_999 = []
+    for c in range(0, numFeatures):
+        cnt=np.count_nonzero(np.isnan(x[:, c]))
+        num_999.append(cnt)
+        frac_999.append(np.divide(cnt,numTrials))
+    frac_999=np.asarray(frac_999)
+    featuresToKeepIndx=np.where(frac_999<fraction999Threshold)
+    y=xIn[:,featuresToKeepIndx]
+    y=np.squeeze(y)
+    print('Number of features after removal of the ones with too much 999:', len(y[0,:]))
+    return y
+    
+
 def resolve999values(x,createNew999Features,plottingOn):
     num_features= len(x[0,:])
     num_samples = len(x[:,0])
@@ -128,7 +177,7 @@ def resolve999values(x,createNew999Features,plottingOn):
         if(np.sum(newFeature)!=0):
             newFeatures=np.column_stack((newFeatures,newFeature))
     if (createNew999Features==1):
-        newFeatures=newFeatures[:,1:]
+        newFeatures=newFeatures[:,1]
         x=np.column_stack((x,newFeatures))
         print('Features dimension after 999 expansion:', np.shape(x))    
         
@@ -152,11 +201,17 @@ def removeOutliers(x, percentileOutliers):
         x[:,i]=np.clip(x[:,i],0,x_perc_border[i])
     return x
 
-def featuresPreprocessing(x,createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree,percentileOutliers,plottingOn):
+def featuresPreprocessing(x,remove999FeaturesOn, fraction999Threshold, createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree, toGaussDistributionOn,skewnessThreshold,removeOutliersOn,percentileOutliers,plottingOn):
     # -999values
+    if (remove999FeaturesOn==1):
+        x=remove_999_features(x,fraction999Threshold)
     x=resolve999values(x,createNew999Features,plottingOn)
      # removing outliers
-    x=removeOutliers(x, percentileOutliers) 
+    if (removeOutliersOn==1):
+        x=removeOutliers(x, percentileOutliers) 
+    # correct distribution to gaussian
+    if (toGaussDistributionOn==1):
+        x=transform_to_gauss(x,skewnessThreshold)
     # building polinomial features
     x=build_poly(x,createNewDegreeFeatures,createNewQuadraticFeatures, degree)
     #normalizing data

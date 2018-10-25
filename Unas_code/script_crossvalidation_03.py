@@ -21,7 +21,10 @@ import matplotlib.pyplot as plt
 #autoreload 2
 
 from proj1_helpers import *
-from functions import * 
+from lib_dataPreprocessing import *
+from lib_errorMetrics import *
+from lib_MLmodels import *
+
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -29,10 +32,16 @@ import seaborn as sns
 
 #SETUP 
 plottingOn=0
+remove999FeaturesOn=1
+fraction999Threshold=0.5 
 createNew999Features=0
 createNewDegreeFeatures=0
 createNewQuadraticFeatures=1
 degree=5
+toGaussDistributionOn=1
+skewnessThreshold=0 #0.5
+removeOutliersOn=1
+percentileOutliers=96
 
 leastSquaresOn=0
 gradientDescentOn=0
@@ -40,12 +49,11 @@ ridgeRegressionOn=0
 logisticRegressionOn=1
 logisticRegressionRegularizedOn=0
 
-percentileOutliers=96
 
 numFolds=4
 seed=1
 
-max_iters = 3000
+max_iters = 300
 gamma =0.1 # 0.00001 
 lambda_= 0.5
 initial_w = np.zeros(np.shape(features[1,:]))
@@ -72,7 +80,7 @@ print('Number of trials training:', len(yb_train))
 # Labels from [-1,1] to [0,1]
 yb_train=y_to_01(yb_train)
 # augumenting features 
-x_train_augumented=featuresPreprocessing(x_train,createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree,percentileOutliers,plottingOn)
+x_train_augumented=featuresPreprocessing(x_train,remove999FeaturesOn, fraction999Threshold, createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree, toGaussDistributionOn,skewnessThreshold, removeOutliersOn,percentileOutliers,plottingOn)
 
 num_features= len(x_train_augumented[1,:])
 num_samples = len(yb_train)
@@ -80,8 +88,8 @@ samples = np.arange(num_samples)
 
 #------------------------------------------------------------------------------
 # BUILDING FOLDS  
-num_features= len(x[1,:])
-num_trials=len(yb)
+num_features= len(x_train_augumented[1,:])
+num_trials=len(yb_train)
 k_indices = build_k_indices(num_trials, numFolds, seed)
 
 
@@ -97,7 +105,7 @@ accuracy_te_all=[]
 for k in range(numFolds):
     
     #test set
-    x_CV_te=x_norm[k_indices[k,:]]
+    x_CV_te=x_train_augumented[k_indices[k,:]]
     y_CV_te=yb_train[k_indices[k,:]]
     
     #train set
@@ -106,7 +114,7 @@ for k in range(numFolds):
         if not i in k_indices[k,:]:
             ind_tr=np.append(ind_tr,i)
     ind_tr=ind_tr.astype(int)
-    x_CV_tr=x_norm[ind_tr]
+    x_CV_tr=x_train_augumented[ind_tr]
     y_CV_tr=yb_train[ind_tr]
     
     
@@ -138,7 +146,7 @@ for k in range(numFolds):
     #transform labels to classes 
     y_pred_tr=x_CV_tr.dot(w)
     y_pred_tr_cl=predictionToClasses(y_pred_tr,typeNormLog)
-    y_pred_te=x_CV_test.dot(w)
+    y_pred_te=x_CV_te.dot(w)
     y_pred_te_cl=predictionToClasses(y_pred_te,typeNormLog)
     #calculate statistics 
     error_tr, accuracy_tr=calcResultsStatistics(y_CV_tr,y_pred_tr_cl)  
@@ -148,18 +156,18 @@ for k in range(numFolds):
     accuracy_tr_all=np.append(accuracy_tr_all,accuracy_tr)
     accuracy_te_all=np.append(accuracy_te_all,accuracy_te)
     
+    
     print()
     print('k:', k)
     print('TRAINING-> loss:',loss_tr, 'error:', error_tr, 'accuracy:', accuracy_tr)
     print('TESTING-> loss:',loss_te, 'error:', error_te, 'accuracy:', accuracy_te)
-
-#------------------------------------------------------------------------------
-# PERFORMANCE METRICS
     
 loss_tr=np.mean(loss_tr_all)
 loss_te=np.mean(loss_te_all)
 loss_tr_var=np.std(loss_tr_all)
 loss_te_var=np.std(loss_te_all)
+
+
 error_tr=np.mean(error_tr_all)
 error_te=np.mean(error_te_all)
 error_tr_var=np.std(error_tr_all)

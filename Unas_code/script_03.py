@@ -5,12 +5,6 @@ Created on Tue Oct 23 15:25:43 2018
 @author: Una
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Oct 21 14:08:09 2018
-
-@author: Una
-"""
 
 # Useful starting lines
 #matplotlib inline
@@ -23,19 +17,26 @@ from proj1_helpers import *
 from lib_dataPreprocessing import *
 from lib_errorMetrics import *
 from lib_MLmodels import *
+from lib_PCA import *
 
 import os
 import matplotlib.pyplot as plt
 import json
-import seaborn as sns
+#import seaborn as sns
 
 
 #SETUP 
 plottingOn=0
-createNew999Features=0
-createNewDegreeFeatures=0
+remove999FeaturesOn=0
+fraction999Threshold=0.8
+createNew999Features=1
+createNewDegreeFeatures=1
 createNewQuadraticFeatures=1
 degree=5
+toGaussDistributionOn=0
+skewnessThreshold=0 #0.5
+removeOutliersOn=1
+percentileOutliers=96
 
 leastSquaresOn=0
 gradientDescentOn=0
@@ -58,7 +59,10 @@ print('Number of trials training:', len(yb_train))
 # Labels from [-1,1] to [0,1]
 yb_train=y_to_01(yb_train)
 # augumenting features 
-x_train_augumented=featuresPreprocessing(x_train,createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree,percentileOutliers,plottingOn)
+x_train_augumented=featuresPreprocessing(x_train,remove999FeaturesOn, fraction999Threshold, createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree, toGaussDistributionOn,skewnessThreshold, removeOutliersOn,percentileOutliers,plottingOn)
+
+#PCA TESTING
+#perform_PCA_reduction(x_train_augumented)
 
 num_features= len(x_train_augumented[1,:])
 num_samples = len(yb_train)
@@ -96,9 +100,9 @@ if (ridgeRegressionOn==1):
 
 ## LOGISTIC REGRESSION 
 if (logisticRegressionOn==1):
-    max_iters = 3000#30000
+    max_iters = 1000#30000
     gamma = 0.1
-    initial_w = np.zeros(np.shape(features[1,:]))
+    initial_w = np.zeros(np.shape(x_train_augumented[1,:]))
     typeNormLog='logistic'
     w, loss= logistic_regression(yb_train, x_train_augumented, initial_w, max_iters, gamma)
     print('LOGISTIC REGRESSION :')
@@ -109,7 +113,7 @@ if (logisticRegressionRegularizedOn==1):
     max_iters = 10000
     gamma =0.1 # 0.00001 
     lambda_= 0.5
-    initial_w = np.zeros(np.shape(features[1,:]))
+    initial_w = np.zeros(np.shape(x_train_augumented[1,:]))
     typeNormLog='logistic'
     w, loss= reg_logistic_regression(yb_train, x_train_augumented, lambda_, initial_w, max_iters, gamma)
     print('REGULARIZED LOGISTIC REGRESSION :')
@@ -124,37 +128,38 @@ y_pred_train_cl=predictionToClasses(y_pred_train,typeNormLog)
 #calculate statistics 
 error_train, accuracy_train=calcResultsStatistics(yb_train,y_pred_train_cl) 
 
-#-------------------------------------------------------------------------------
-# PREDICTING TEST DATA
-
-# DATA LOADING  - TEST
-data_path = os.path.abspath("../data/test.csv")
-yb_test, x_test, ids_test= load_csv_data(data_path, sub_sample=False)
-# Check types of labels
-print(set(yb_test))
-print('Number of trials test :', len(yb_test))
-
-# FEATURE PREPROCESSING
-# augumenting features 
-x_test_augumented=featuresPreprocessing(x_test,createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree,percentileOutliers,plottingOn)
-
-#transform labels to classes 
-y_pred_test=x_test_augumented.dot(w)
-y_pred_test_cl=predictionToClasses(y_pred_test,typeNormLog)
-
-#CREATING OUTPUT FILE FOR SUBMISSION 
-name_file='predictionLabels.csv'
-create_csv_submission(ids_test, y_pred_test_cl, name_file)
-
-#-------------------------------------------------------------------------------
-#STORING WEIGHTS 
-wList=w.tolist()
-print(wList)
-
-with open("weights.json", "w") as write_file:
-    json.dump(wList, write_file)
-    
-with open("weights.json", "r") as read_file:
-    wList = json.load(read_file)
-weights=np.asarray(wList)
-print(weights)
+##-------------------------------------------------------------------------------
+## PREDICTING TEST DATA
+#
+## DATA LOADING  - TEST
+#data_path = os.path.abspath("../data/test.csv")
+#yb_test, x_test, ids_test= load_csv_data(data_path, sub_sample=False)
+## Check types of labels
+#print(set(yb_test))
+#print('Number of trials test :', len(yb_test))
+#
+## FEATURE PREPROCESSING
+## augumenting features 
+#x_test_augumented=featuresPreprocessing(x_test,remove999FeaturesOn, fraction999Threshold, createNew999Features,createNewQuadraticFeatures,createNewDegreeFeatures,degree, toGaussDistributionOn,skewnessThreshold,removeOutliersOn,percentileOutliers,plottingOn)
+#
+##transform labels to classes 
+#y_pred_test=x_test_augumented.dot(w)
+#y_pred_test_cl=predictionToClasses(y_pred_test,typeNormLog)
+#y_pred_test_11=2*(y_pred_test_cl-0.5)
+#
+##CREATING OUTPUT FILE FOR SUBMISSION 
+#name_file='predictionLabels.csv'
+#create_csv_submission(ids_test, y_pred_test_11, name_file)
+#
+##-------------------------------------------------------------------------------
+##STORING WEIGHTS 
+#wList=w.tolist()
+#print(wList)
+#
+#with open("weights.json", "w") as write_file:
+#    json.dump(wList, write_file)
+#    
+#with open("weights.json", "r") as read_file:
+#    wList = json.load(read_file)
+#weights=np.asarray(wList)
+#print(weights)
