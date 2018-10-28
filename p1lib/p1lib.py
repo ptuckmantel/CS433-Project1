@@ -4,7 +4,7 @@ import numpy as np
 
 
 def standardise(a):
-    """Centers data around mean and normalised by standard deviation"""
+    """Centers data around mean and normalised by standard deviation. Returns standardised data, its mean and standard deviation"""
     mean = np.mean(a, axis=0)
     stddev = np.std(a, axis=0)
     b = (a - mean) / stddev
@@ -36,17 +36,23 @@ def split_data(x, y, ratio, seed=1):
     np.random.seed(seed)
     n = len(y)
     tr_length = np.int(n * ratio)
-    indices = np.random.choice(np.arange(n), tr_length, replace=False)
-    x_train = x[indices]
-    y_train = y[indices]
-    x_test = np.array([i for i in x if i not in x_train])
-    y_test = np.array([i for i in y if i not in y_train])
+    all_indices=np.arange(len(y))
+    tr_indices = np.random.choice(np.arange(n), tr_length, replace=False)
+    te_indices = np.array([i for i in all_indices if i not in tr_indices])
+    #x_train = x[indices]
+    #y_train = y[indices]
+    x_train = x[tr_indices]
+    y_train = y[tr_indices]
+    x_test=x[te_indices]
+    y_test = y[te_indices]
+    #x_test = np.array([i for i in x if i not in x_train])
+    #y_test = np.array([i for i in y if i not in y_train])
 
     return x_train, y_train, x_test, y_test
 
 
 def build_k_indices(y, k_fold, seed):
-    """build k indices for k-fold."""
+    """build k indices for k-fold. Returns a k-fold long array containing each fold's indices"""
     num_row = y.shape[0]
     interval = int(num_row / k_fold)
     np.random.seed(seed)
@@ -107,12 +113,22 @@ def compute_rmse(y, tx, w):
     return rmse
 
 
+# def compute_loss_logistic(y, tx, w):
+#     """compute the cost by negative log likelihood."""
+#     y_hat = np.dot(tx, w)
+#     loss_vector = np.log(1 + np.exp(y_hat)) - y * y_hat
+#     loss = np.sum(loss_vector)
+#     loss=loss/len(y)
+#     return loss
+#
 def compute_loss_logistic(y, tx, w):
     """compute the cost by negative log likelihood."""
-    y_hat = np.dot(tx, w)
-    loss_vector = np.log(1 + np.exp(y_hat)) - y * y_hat
-    loss = np.sum(loss_vector)
-    return loss
+    epsilon=1e-8
+    pred = sigmoid(tx.dot(w))
+    loss = y.T.dot(np.log(pred+epsilon)) + (1 - y).T.dot(np.log(1 - pred+epsilon))
+    loss=loss/len(y)
+    return np.squeeze(- loss)
+
 
 
 """TOOLS FOR COST OPTIMISATION"""
@@ -172,18 +188,25 @@ def compute_stoch_gradient(y, tx, w):
     gradient = -np.dot(tx.T, e) / n
     return gradient
 
-
 def sigmoid(t):
     """apply sigmoid function on t."""
-    s = np.exp(t) / (1 + np.exp(t))
+    #s = 1. / (1 + np.exp(-t))
+    t=np.clip(t, -500, 500)
+    s=np.exp(t)/(1+np.exp(t))
     return s
 
+#
+# def compute_gradient_logistic(y, tx, w):
+#     """compute the gradient of loss."""
+#     y_hat = np.dot(tx, w)
+#     s = sigmoid(y_hat)
+#     grad = np.dot(tx.T, (s - y))/len(y)
+#     return grad
 
 def compute_gradient_logistic(y, tx, w):
-    """compute the gradient of loss."""
-    y_hat = np.dot(tx, w)
-    s = sigmoid(y_hat)
-    grad = np.dot(tx.T, (s - y))
+    """compute the gradient of logistic cost function."""
+    pred = sigmoid(tx.dot(w))
+    grad = tx.T.dot(pred - y)/len(y)
     return grad
 
 
@@ -199,7 +222,7 @@ def learning_by_gradient_descent(y, tx, w, gamma):
 
 
 def penalized_logistic_regression(y, tx, w, lambda_):
-    """return the loss, gradient, and hessian."""
+    """return the loss, and gradient of logistic cost function"""
     loss = compute_loss_logistic(y, tx, w) + lambda_ * np.linalg.norm(w) ** 2
     grad = compute_gradient_logistic(y, tx, w) + 2 * lambda_ * w
     return loss, grad
@@ -257,7 +280,7 @@ def gradient_descent(y, tx, initial_w, max_iters, gamma, status=True, cost_funct
 
 
 def least_squares_GD(y, tx, initial_w, max_iters, gamma, status=True):
-    """Gradient descent algorithm with MSE cost function"""
+    """Gradient descent algorithm with MSE cost function. Returns w, loss: the optimal weights and the loss"""
     # Define parameters to store w and loss
     ws = [initial_w]
     losses = []
@@ -356,6 +379,17 @@ def stochastic_gradient_descent_dynamic(y, tx, initial_w, batch_size, max_iters,
                 bi=n_iter, ti=max_iters - 1, ls=loss, w0=w[0], w1=w[1]))
     return w, loss
 
+def stochastic_reg_logistic_regression(y, tx, lambda_, initial_w, max_iter, gamma, batch_size):
+    w=initial_w
+    losses= []
+    for n_iter in range(max_iter):
+        for minibatch_y, minibatch_tx in batch_iter(y, tx, batch_size):
+            _, grad = penalized_logistic_regression(minibatch_y, minibatch_tx, w, lambda_)
+            loss=compute_loss_logistic(y, tx, w)
+        w=w-gamma*grad
+        if n_iter % 100 == 0:
+            print("Current iteration={i}, loss={l}".format(i=n_iter, l=loss))
+    return w, loss
 
 def least_squares(y, tx):
     """calculate the least squares solution."""
@@ -380,28 +414,37 @@ def ridge_regression(y, tx, lambda_):
 def logistic_regression(y, tx, initial_w, max_iter, gamma):
     """ Calculate w using logistic gradient descent"""
     loss_hist = []
+    thresh=1e-5
     w = initial_w
     # start the logistic regression
     for iter in range(max_iter):
         # get loss and update w.
         w, loss = learning_by_gradient_descent(y, tx, w, gamma)
         # log info
+        loss_hist.append(loss)
+
+        if len(loss_hist)>1 and np.abs(loss_hist[-1]-loss_hist[-2])<thresh:
+            break
         if iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
         # converge criterion
-        loss_hist.append(loss)
     return w, loss
 
 
 def reg_logistic_regression(y, tx, lambda_, initial_w, max_iter, gamma):
     """Calculate w using regularised logistic regression"""
+    thresh=1e-5
     loss_hist = []
     w = initial_w
     # start the logistic regression
     for iter in range(max_iter):
         # get loss and update w.
         w, loss = learning_by_penalized_gradient(y, tx, w, gamma, lambda_)
+        loss_hist.append(loss)
+
         # log info
+        if len(loss_hist)>1 and np.abs(loss_hist[-1]-loss_hist[-2])<thresh:
+            break
         if iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
     return w, loss
