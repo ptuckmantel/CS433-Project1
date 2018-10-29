@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.stats import skew
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def replace_nans(x, y):
     """Separates training data into signal and background classes and replaces missing data"""
@@ -78,7 +80,37 @@ def transform_to_gauss(x):
             corrected_data.append(x[:, d])
             
     return np.array(corrected_data).T
+
+
+def plot_scatter_matrix(dataframe):
+    """Does a scatter matrix plot of input dataframe"""
+    scatter_matrix = pd.plotting.scatter_matrix(dataframe,diagonal = "kde", figsize=(20,20))
+    for ax in scatter_matrix.ravel():       
+        ax.set_xlabel(ax.get_xlabel(), fontsize = 10, rotation = 90,)
+        ax.set_ylabel(ax.get_ylabel(), fontsize = 10, rotation = 0, labelpad=60)
+
+        
+def plot_radviz(dataframe, target):
+    """Does a radviz plot of input dataframe using the target variable as outcome. Outcomes are color coded in green and blue"""
+    plt.figure(figsize=(24,18))
+    pd.plotting.radviz(dataframe, target, color=('green', 'blue'), alpha=0.5, marker='.')
+
+    
+def plot_parallel_coord(dataframe, target):
+    """Does a parallel coordinate plot of input dataframe using target variable as outcome. Outcomes are color coded in green and blue"""
+    plt.figure(figsize=(24,18))
+    pd.plotting.parallel_coordinates(dataframe, target, color=('green','blue'))
+    plt.xticks(rotation=90)
+
+    
+def remove_invalid_data(data, invalid_value):
+    """ Removes all rows where invalid_value is present"""
+    data=data[~(data==invalid_value).any(axis=1)]
+    
+    return data
+    
      
+
 
 
 
